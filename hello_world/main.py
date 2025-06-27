@@ -2,60 +2,57 @@ from fastapi import FastAPI, HTTPException
 import requests
 from fastapi.responses import JSONResponse
 import json
-from fonction_file import *
-from pydantic import BaseModel
+from file import *
+from schema import Pokemon
 
-#appel de l'api
+#call the api
 app = FastAPI()
 
-#Constantes
+#Constants
 URL_API_POKEMON = "https://pokeapi.co/api/v2/pokemon/"
 CACHE_FILE = "pokemon_list.json"
 
-class Pokemon(BaseModel):
-    name: str
-    weight : int
 
 
-# S'assurer que le fichier de cache existe
+#initialize the cache
 create_file(CACHE_FILE)
                                 
 
-#Routes pour voir le poid d'un pokemon
+#route to get pokemon's weight
 @app.get("/pokemon/{pokemon_name}", response_model=Pokemon)
 def get_pokemon(pokemon_name : str):
 
-    #on lit le fichier
+    #read cache file
     data_file = open_file(CACHE_FILE)
                        
-    #si le pokemon est dans le fichier
+    #if pokemon on the file
     if pokemon_name in data_file:
-        #on prend le pokemon
+        #take pokemon
         pokemon = data_file[pokemon_name]
-        #on retourne le pokemon
+        #return the pokemon
         return Pokemon(name = pokemon_name, weight = pokemon["weight"])
 
-    #sinon on fait appel à l'api
-    #on essaie l'api
+    #else fetch from pokemon api
+    #try api
     try :
         res = requests.get(f"{URL_API_POKEMON}{pokemon_name}")
-        #on test les autre erreur
+        #try errors
         res.raise_for_status()
 
-        #on récupere le pokemon
+        #grab the pokemon information
         pokemon = res.json()
         if not pokemon["weight"] :
             raise HTTPException(status_code=404, detail="weight not found")
 
-        #mise a jour du cache
+        #update the local cache
         update_cache(pokemon_name, pokemon["weight"], CACHE_FILE, data_file)
 
-        #on retourne le pokemon
+        #return the pokemon information
         return Pokemon(name = pokemon_name, weight = pokemon["weight"])
-    #erreur autre de l'api
     except HTTPError as e:
         if e.status_code == 404:
             raise HTTPException(status_code=404, detail="Pokemon not found")
+        #other error
         raise HTTPException(status_code=500, detail="error api pokemon") 
 
 
